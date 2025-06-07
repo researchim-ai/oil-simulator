@@ -22,6 +22,7 @@ $$
 Summing these and applying simplifications leads to a pressure equation for one of the phases (e.g., water pressure $p_w$) and a separate saturation equation.
 
 The saturation equation is solved explicitly after the pressure field is known:
+
 $$
 \phi \frac{\partial S_w}{\partial t} + \nabla \cdot \left( \mathbf{v}_w \right) + q_w = 0
 $$
@@ -46,13 +47,17 @@ Where:
 ### Well Model
 
 Wells are modeled using the standard **Peaceman well model**. The source/sink term for a well is calculated as:
+
 $$
 q = WI \cdot \lambda \cdot (p_{bh} - p_{block})
 $$
+
 Where $WI$ is the well index, calculated as:
+
 $$
 WI = \frac{2 \pi k h}{\ln(r_e / r_w)}
 $$
+
 with the effective radius $r_e = 0.14 \sqrt{\Delta x^2 + \Delta y^2}$.
 
 ## Dependencies
