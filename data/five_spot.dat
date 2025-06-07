@@ -1,0 +1,21 @@
+# Grid properties
+NX 31
+NY 31
+
+# Physical dimensions (meters)
+LX 1000.0
+LY 1000.0
+H 20.0
+
+# Rock properties
+PERM 1e-13
+PORO 0.2
+CR 4e-10
+
+# Simulation time
+DT 86400
+TIME 8640000
+
+# Initial conditions
+INITIAL_PRESSURE 2.0e7
+INITIAL_SATURATION 0.0 

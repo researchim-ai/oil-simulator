@@ -15,12 +15,18 @@ Parameters::Parameters(const std::string& filename) {
     while (std::getline(file, line)) {
         std::stringstream ss(line);
         ss >> key;
-        if (key == "WIDTH") ss >> width;
-        else if (key == "HEIGHT") ss >> height;
+        if (key == "NX") ss >> nx;
+        else if (key == "NY") ss >> ny;
+        else if (key == "LX") ss >> lx;
+        else if (key == "LY") ss >> ly;
+        else if (key == "H") ss >> h;
+        else if (key == "PERM") ss >> perm;
+        else if (key == "PORO") ss >> poro;
+        else if (key == "CR") ss >> cr;
         else if (key == "DT") ss >> dt;
         else if (key == "TIME") ss >> total_time;
-        else if (key == "ALPHA") ss >> alpha;
         else if (key == "INITIAL_PRESSURE") ss >> initial_pressure;
+        else if (key == "INITIAL_SATURATION") ss >> initial_saturation;
     }
     std::cout << "Parameters loaded from " << filename << std::endl;
 } 
