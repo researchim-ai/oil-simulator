@@ -10,14 +10,16 @@ The simulator solves the standard black-oil model equations for two-phase flow.
 
 The simulator implements a two-phase (oil and water) model in a 2D Cartesian grid. The mathematical model consists of two main equations solved sequentially.
 
-The pressure equation is derived from the conservation of mass for both phases and is solved implicitly. It now includes the effect of capillary pressure ($P_c = P_o - P_w$):
+The pressure equation is derived from the conservation of mass for both phases and is solved implicitly. It now includes the effect of capillary pressure ($P_c = P_o - P_w$). The two phase-conservation equations are:
+
 $$
 \nabla \cdot \left( \mathbf{K} \lambda_w \nabla p_w \right) + q_w = \phi \frac{\partial S_w}{\partial t}
 $$
 $$
 \nabla \cdot \left( \mathbf{K} \lambda_o \nabla (p_w + P_c) \right) + q_o = \phi \frac{\partial S_o}{\partial t}
 $$
-Summing these and assuming total velocity formulation leads to a pressure equation for one of the phases (e.g., water pressure $p_w$) and an explicit saturation equation.
+
+Summing these and applying simplifications leads to a pressure equation for one of the phases (e.g., water pressure $p_w$) and a separate saturation equation.
 
 The saturation equation is solved explicitly after the pressure field is known:
 $$
