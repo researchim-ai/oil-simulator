@@ -10,14 +10,18 @@ The simulator solves the standard black-oil model equations for two-phase flow.
 
 The simulator implements a two-phase (oil and water) model in a 2D Cartesian grid. The mathematical model consists of two main equations solved sequentially.
 
-The pressure equation is derived from the conservation of mass for both phases and is solved implicitly:
+The pressure equation is derived from the conservation of mass for both phases and is solved implicitly. It now includes the effect of capillary pressure ($P_c = P_o - P_w$):
 $$
-\nabla \cdot \left( \lambda_t \mathbf{K} \nabla p \right) + q_t = \phi c_t \frac{\partial p}{\partial t}
+\nabla \cdot \left( \mathbf{K} \lambda_w \nabla p_w \right) + q_w = \phi \frac{\partial S_w}{\partial t}
 $$
+$$
+\nabla \cdot \left( \mathbf{K} \lambda_o \nabla (p_w + P_c) \right) + q_o = \phi \frac{\partial S_o}{\partial t}
+$$
+Summing these and assuming total velocity formulation leads to a pressure equation for one of the phases (e.g., water pressure $p_w$) and an explicit saturation equation.
 
 The saturation equation is solved explicitly after the pressure field is known:
 $$
-\phi \frac{\partial S_w}{\partial t} + \nabla \cdot \left( \mathbf{v}_t f_w \right) + q_w = 0
+\phi \frac{\partial S_w}{\partial t} + \nabla \cdot \left( \mathbf{v}_w \right) + q_w = 0
 $$
 
 Where:
@@ -31,6 +35,11 @@ Where:
 - $\mathbf{v}_t$ is the total Darcy velocity.
 - $f_w$ is the fractional flow function for water.
 - $q_w$ is the source term for water.
+- **Relative Permeability**: Corey model.
+- **Capillary Pressure**: Brooks-Corey model.
+- **Fluid Viscosity**: Modeled as a function of pressure.
+- **Linear Solver**: Eigen's BiCGSTAB for the pressure equation.
+- **Parallelism**: Saturation update is parallelized using OpenMP.
 
 ### Well Model
 
@@ -43,13 +52,6 @@ $$
 WI = \frac{2 \pi k h}{\ln(r_e / r_w)}
 $$
 with the effective radius $r_e = 0.14 \sqrt{\Delta x^2 + \Delta y^2}$.
-
-### Other Models
-
-- **Relative Permeability**: Corey model.
-- **Fluid Viscosity**: Modeled as a function of pressure.
-- **Linear Solver**: Eigen's BiCGSTAB for the pressure equation.
-- **Parallelism**: Saturation update is parallelized using OpenMP.
 
 ## Dependencies
 
@@ -86,29 +88,62 @@ The project uses CMake for building.
 
 ## How to Run
 
-### Running a Simulation
-
 The main executable `simulator` takes one argument: the path to a parameter file.
 
 From inside the `build` directory, run:
 ```bash
 ./simulator ../data/five_spot.dat
 ```
-This will:
-1.  Run the simulation based on the parameters in `five_spot.dat`.
-2.  Save the final pressure and saturation for each grid cell into `results.txt` in the project's root directory.
-3.  Automatically call the Python visualization script.
-4.  Generate `pressure_map.png` and `saturation_map.png` in the project's root directory.
 
-### Running Tests
+This starts the simulation. After it completes, it will generate output files in the **current directory** (i.e., `build/`).
 
-The `test_runner` executable runs all compiled unit tests.
+## Simulation Process
 
-From inside the `build` directory, run:
-```bash
-./test_runner
-```
-This will execute the tests and report if they pass or fail.
+The simulation follows the IMPES (Implicit in Pressure, Explicit in Saturation) scheme:
+
+1.  **Initialization**:
+    *   The program reads parameters from the specified `.dat` file, including grid dimensions, rock/fluid properties, and time control settings.
+    *   A `Grid` object is created to store the geometry and properties (porosity, permeability, pressure, saturation) for each cell.
+    *   Wells are placed on the grid according to the scenario (e.g., `create_five_spot` places one injector in the center and four producers at the corners).
+
+2.  **Main Time Loop**:
+    *   The simulator iterates through time with a fixed step `dt` until the `total_time` is reached.
+    *   In each time step, two primary equations are solved sequentially:
+
+    a.  **Pressure Equation (Implicit Solve)**:
+        *   A system of linear equations `Ax = b` is assembled, where `x` is the vector of cell pressures for the new time step.
+        *   The `A` matrix (transmissibility matrix) accounts for permeability, fluid viscosity, and cell geometry.
+        *   The right-hand side vector `b` includes terms for fluid accumulation, well flows, and **capillary pressure gradients**.
+        *   This system is solved using the Eigen library to find the new pressure field across the reservoir.
+
+    b.  **Saturation Equation (Explicit Update)**:
+        *   Using the newly calculated pressure field, inter-cell flow rates are computed based on Darcy's Law.
+        *   These flows are a function of the pressure gradient, fluid mobilities, and permeability. The **capillary pressure** term is included here as well to make the flow more physically accurate.
+        *   The water saturation of each cell is then explicitly updated based on the net flow into it.
+
+3.  **Save Results**:
+    *   After the final time step, the resulting pressure and saturation fields are saved.
+    *   A Python script is called to visualize the data.
+
+## Output Files Description
+
+After a successful run, the following files are created in the `build/` directory:
+
+*   `results.txt`:
+    *   **Format**: A comma-separated values (CSV) text file.
+    *   **Content**: Each row represents a single grid cell and contains four values:
+        1.  `i`: The X-index of the cell.
+        2.  `j`: The Y-index of the cell.
+        3.  `pressure`: The final pressure in the cell (in Pascals).
+        4.  `saturation`: The final water saturation in the cell (a fraction from 0 to 1).
+
+*   `pressure_map.png`:
+    *   **Format**: PNG image.
+    *   **Content**: A 2D color map of the pressure distribution. The "viridis" colormap shows pressure variations, helping to identify high and low-pressure zones.
+
+*   `saturation_map.png`:
+    *   **Format**: PNG image.
+    *   **Content**: A 2D color map of the water saturation distribution. The "jet" colormap visualizes the water front (red/orange tones) and remaining oil (blue tones), clearly showing how the water has moved from the injector towards the producers.
 
 ## Project Structure
 

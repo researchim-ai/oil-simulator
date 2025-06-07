@@ -1,0 +1,22 @@
+# Grid dimensions
+nx 31
+ny 31
+
+# Physical dimensions (m)
+lx 1000.0
+ly 1000.0
+h 10.0
+
+# Rock and fluid properties
+perm 1e-13  # Permeability (m^2)
+poro 0.2    # Porosity
+cr 1e-9     # Rock compressibility (1/Pa)
+
+# Time control
+dt 86400 # 1 day in seconds
+total_time 86400000 # 1000 days
+
+# Initial conditions
+initial_pressure 2e7 # Pa
+initial_saturation 0.1 # water saturation
+pc_entry 2000 # Pa 

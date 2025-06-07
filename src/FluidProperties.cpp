@@ -3,11 +3,24 @@
 #include <algorithm>
 
 FluidProperties::FluidProperties() {
-    // Задаем стандартные значения
-    m_viscosity_water_ref = 1.0;   // cP
-    m_viscosity_oil_ref = 10.0;  // cP
-    m_compressibility_viscosity_water = 1e-6; // 1/psi
-    m_compressibility_viscosity_oil = 1e-5;   // 1/psi
+    // Viscosity properties
+    mu_ref_w = 1.0;    // cP
+    mu_ref_o = 10.0;   // cP
+    c_w = 1e-6;        // 1/psi for water viscosity
+    c_o = 1e-5;        // 1/psi for oil viscosity
+    p_ref_w = 0.0;     // Reference pressure, Pa
+    p_ref_o = 0.0;     // Reference pressure, Pa
+
+    // Corey model relative permeability properties
+    s_wc = 0.1;        // Connate water saturation
+    s_or = 0.1;        // Residual oil saturation
+    krw_max = 0.8;     // Max water relative permeability
+    kro_max = 1.0;     // Max oil relative permeability
+    n_w = 2.0;         // Corey exponent for water
+    n_o = 2.0;         // Corey exponent for oil
+
+    // Capillary pressure
+    pc_entry = 2000.0; // Pa (default value, ~0.3 psi)
 }
 
 // Модель ОФП Кори
@@ -15,48 +28,51 @@ FluidProperties::FluidProperties() {
 // k_rw = krw_end * ((S_w - Swc) / (1 - Swc - Sor))^exp_w
 // k_ro = kro_end * ((1 - S_w - Sor) / (1 - Swc - Sor))^exp_o
 
-double FluidProperties::krw(double saturation) const {
-    const double swc = 0.1;      // Связанная вода
-    const double sor = 0.1;      // Остаточная нефтенасыщенность
-    const double krw_end = 0.8;  // ОФП воды при остаточной нефте-ти
-    const double exp_w = 2.0;    // Экспонента Кори для воды
-
-    if (saturation <= swc) {
+double FluidProperties::krw(double s_w) const {
+    if (s_w <= s_wc) {
         return 0.0;
     }
-    if (saturation >= 1.0 - sor) {
-        return krw_end;
+    if (s_w >= 1.0 - s_or) {
+        return krw_max;
     }
-    double s_norm = (saturation - swc) / (1.0 - swc - sor);
-    return krw_end * std::pow(s_norm, exp_w);
+    double s_norm = (s_w - s_wc) / (1.0 - s_wc - s_or);
+    return krw_max * std::pow(s_norm, n_w);
 }
 
-double FluidProperties::kro(double saturation) const {
-    const double swc = 0.1;
-    const double sor = 0.1;
-    const double kro_end = 1.0;  // ОФП нефти при связанной воде
-    const double exp_o = 2.0;    // Экспонента Кори для нефти
-
-    if (saturation >= 1.0 - sor) {
+double FluidProperties::kro(double s_w) const {
+    if (s_w >= 1.0 - s_or) {
         return 0.0;
     }
-     if (saturation <= swc) {
-        return kro_end;
+     if (s_w <= s_wc) {
+        return kro_max;
     }
-    double s_norm = (1.0 - saturation - sor) / (1.0 - swc - sor);
-    return kro_end * std::pow(s_norm, exp_o);
+    double s_norm = (1.0 - s_w - s_or) / (1.0 - s_wc - s_or);
+    return kro_max * std::pow(s_norm, n_o);
+}
+
+double FluidProperties::capillaryPressure(double s_w) const {
+    if (s_w >= 1.0 - s_or) {
+        return 0.0;
+    }
+    // Effective saturation for capillary pressure
+    double s_eff = (1.0 - s_w - s_or) / (1.0 - s_wc - s_or);
+    if (s_eff <= 0) return 1e7; // A large pressure to prevent s_eff <= 0
+    
+    // Simple Brooks-Corey-like model
+    // Using the same exponent 'n_o' as for oil rel-perm for simplicity
+    return pc_entry * std::pow(s_eff, -1.0/n_o);
 }
 
 double FluidProperties::waterViscosity(double pressure) const {
     const double cP_to_PaS = 0.001;
     // Конвертируем Паскали в psi для формулы
-    double pressure_psi = pressure * 0.000145038;
+    double pressure_psi = (pressure - p_ref_w) * 0.000145038;
     // Простая экспоненциальная модель вязкости
-    return m_viscosity_water_ref * std::exp(m_compressibility_viscosity_water * pressure_psi) * cP_to_PaS;
+    return mu_ref_w * std::exp(c_w * pressure_psi) * cP_to_PaS;
 }
 
 double FluidProperties::oilViscosity(double pressure) const {
     const double cP_to_PaS = 0.001;
-    double pressure_psi = pressure * 0.000145038;
-    return m_viscosity_oil_ref * std::exp(m_compressibility_viscosity_oil * pressure_psi) * cP_to_PaS;
+    double pressure_psi = (pressure - p_ref_o) * 0.000145038;
+    return mu_ref_o * std::exp(c_o * pressure_psi) * cP_to_PaS;
 } 

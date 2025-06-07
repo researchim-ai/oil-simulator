@@ -23,12 +23,12 @@ public:
     // EN: Gets and sets the pressure value at cell (i, j).
     // RU: Получает и устанавливает значение давления в ячейке (i, j).
     double& pressure(int i, int j);
-    double pressure(int i, int j) const;
+    const double& pressure(int i, int j) const;
 
     // EN: Gets and sets the water saturation value at cell (i, j).
     // RU: Получает и устанавливает значение насыщенности водой в ячейке (i, j).
     double& saturation(int i, int j);
-    double saturation(int i, int j) const;
+    const double& saturation(int i, int j) const;
 
     // EN: Gets the porosity at cell (i, j). Currently uniform.
     // RU: Получает пористость в ячейке (i, j). В данный момент однородная.
@@ -78,6 +78,6 @@ private:
 
     std::vector<double> m_pressure;    // EN: Pressure values for each cell. / RU: Значения давления для каждой ячейки.
     std::vector<double> m_saturation;  // EN: Saturation values for each cell. / RU: Значения насыщенности для каждой ячейки.
-    std::vector<double> m_porosity;    // EN: Porosity values for each cell. / RU: Значения пористости для каждой ячейки.
-    std::vector<double> m_permeability;// EN: Permeability values for each cell. / RU: Значения проницаемости для каждой ячейки.
+    double m_porosity;    // EN: Porosity values for each cell. / RU: Значения пористости для каждой ячейки.
+    double m_permeability;// EN: Permeability values for each cell. / RU: Значения проницаемости для каждой ячейки.
 }; 

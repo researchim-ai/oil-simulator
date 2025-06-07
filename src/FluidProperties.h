@@ -24,6 +24,10 @@ public:
     // RU: Рассчитывает относительную проницаемость по воде по модели Кори.
     double krw(double s_w) const;
 
+    // EN: Calculates capillary pressure as a function of water saturation.
+    // RU: Рассчитывает капиллярное давление как функцию водонасыщенности.
+    double capillaryPressure(double s_w) const;
+
     // EN: Connate water saturation (irreducible).
     // RU: Связанная (остаточная) водонасыщенность.
     double s_wc;
@@ -72,4 +76,8 @@ private:
     // EN: Maximum relative permeability for oil (endpoint).
     // RU: Максимальная относительная проницаемость для нефти.
     double kro_max;
+
+    // EN: Capillary pressure model parameters (Brooks-Corey)
+    // RU: Параметры модели капиллярного давления (Брукса-Кори)
+    double pc_entry; // Pa, entry pressure / давление проникновения
 }; 

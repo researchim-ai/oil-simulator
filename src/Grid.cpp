@@ -8,10 +8,10 @@ Grid::Grid(const Parameters& params)
       m_ny(params.ny),
       m_dx(params.lx / params.nx),
       m_dy(params.ly / params.ny),
-      m_perm(params.perm),
-      m_poro(params.poro),
-      m_pressure(params.nx * params.ny, 0.0),
-      m_saturation(params.nx * params.ny, 0.0)
+      m_permeability(params.perm),
+      m_porosity(params.poro),
+      m_pressure(params.nx * params.ny, params.initial_pressure),
+      m_saturation(params.nx * params.ny, params.initial_saturation)
 {
     std::cout << "Grid created with size " << m_nx << "x" << m_ny << std::endl;
     std::cout << "Cell dimensions: dx = " << m_dx << "m, dy = " << m_dy << "m" << std::endl;
@@ -46,12 +46,12 @@ double Grid::getDy() const {
 
 double Grid::getPermeability(int i, int j) const {
     // For now, permeability is homogeneous
-    return m_perm;
+    return m_permeability;
 }
 
 double Grid::getPorosity(int i, int j) const {
     // For now, porosity is homogeneous
-    return m_poro;
+    return m_porosity;
 }
 
 double& Grid::pressure(int i, int j) {

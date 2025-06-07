@@ -22,4 +22,5 @@ public:
     double total_time;          // EN: Total simulation time in seconds / RU: Общее время симуляции в секундах
     double initial_pressure;
     double initial_saturation;
+    double pc_entry;            // EN: Entry capillary pressure in Pa / RU: Входное капиллярное давление в Па
 }; 

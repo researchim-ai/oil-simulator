@@ -83,6 +83,7 @@ void Solver::assemble_system(double dt) {
     for (int i = 0; i < nx; ++i) {
         for (int j = 0; j < ny; ++j) {
             const int k = grid.idx(i, j);
+            const double s_w_old = grid.saturation(i, j);
 
             // 1. Accumulation Term
             const double Bw = 1.0;
@@ -90,51 +91,74 @@ void Solver::assemble_system(double dt) {
             double diagonal_element = accumulation_coeff;
             b(k) = accumulation_coeff * grid.pressure(i, j);
 
-            // 2. Transmissibility Terms
-            auto get_trans = [&](int ci, int cj, int ni, int nj, double cross_sectional_area, double distance) {
-                double perm_c = grid.getPermeability(ci, cj);
-                double perm_n = grid.getPermeability(ni, nj);
-                double avg_perm = (2.0 * perm_c * perm_n) / (perm_c + perm_n); // Harmonic mean for permeability
-
-                // Upstream weighting for mobility
+            // 2. Transmissibility & Capillary Pressure Terms
+            auto get_trans_and_pc = [&](int ci, int cj, int ni, int nj, double cross_sectional_area, double distance) {
                 double p_c = grid.pressure(ci, cj);
                 double p_n = grid.pressure(ni, nj);
-                double s_up;
-                double p_up;
+                double s_c = grid.saturation(ci, cj);
+                double s_n = grid.saturation(ni, nj);
 
-                if (p_c > p_n) {
-                    s_up = grid.saturation(ci, cj);
+                // Upstream weighting for mobility
+                double s_up, p_up;
+                if (p_c > p_n) { // Flow from c to n
+                    s_up = s_c;
                     p_up = p_c;
-                } else {
-                    s_up = grid.saturation(ni, nj);
+                } else { // Flow from n to c
+                    s_up = s_n;
                     p_up = p_n;
                 }
                 
                 double total_mobility = (fluid.krw(s_up) / fluid.waterViscosity(p_up)) + (fluid.kro(s_up) / fluid.oilViscosity(p_up));
                 
-                return avg_perm * total_mobility * cross_sectional_area / distance;
+                double perm_c = grid.getPermeability(ci, cj);
+                double perm_n = grid.getPermeability(ni, nj);
+                double avg_perm = (2.0 * perm_c * perm_n) / (perm_c + perm_n); // Harmonic mean for permeability
+                
+                double T_total = avg_perm * total_mobility * cross_sectional_area / distance;
+
+                // Capillary term (added to RHS)
+                double mob_w_up = fluid.krw(s_up) / fluid.waterViscosity(p_up);
+                double T_w = avg_perm * mob_w_up * cross_sectional_area / distance;
+                double pc_c = fluid.capillaryPressure(s_c);
+                double pc_n = fluid.capillaryPressure(s_n);
+                double cap_term = T_w * (pc_n - pc_c);
+
+                return std::make_pair(T_total, cap_term);
             };
 
+            double T_right, T_left, T_top, T_bottom;
+            double Pc_term_right = 0, Pc_term_left = 0, Pc_term_top = 0, Pc_term_bottom = 0;
+
             if (i < nx - 1) { 
-                double T_right = get_trans(i, j, i + 1, j, dy * h, dx);
+                auto [T, Pc_term] = get_trans_and_pc(i, j, i + 1, j, dy * h, dx);
+                T_right = T;
+                Pc_term_right = Pc_term;
                 diagonal_element += T_right;
                 triplets.emplace_back(k, grid.idx(i + 1, j), -T_right);
             }
             if (i > 0) {
-                double T_left = get_trans(i, j, i - 1, j, dy * h, dx);
+                auto [T, Pc_term] = get_trans_and_pc(i, j, i - 1, j, dy * h, dx);
+                T_left = T;
+                Pc_term_left = -Pc_term; // Note the sign change
                 diagonal_element += T_left;
                 triplets.emplace_back(k, grid.idx(i - 1, j), -T_left);
             }
             if (j < ny - 1) {
-                double T_top = get_trans(i, j, i, j + 1, dx * h, dy);
+                auto [T, Pc_term] = get_trans_and_pc(i, j, i, j + 1, dx * h, dy);
+                T_top = T;
+                Pc_term_top = Pc_term;
                 diagonal_element += T_top;
                 triplets.emplace_back(k, grid.idx(i, j + 1), -T_top);
             }
             if (j > 0) {
-                double T_bottom = get_trans(i, j, i, j - 1, dx * h, dy);
+                auto [T, Pc_term] = get_trans_and_pc(i, j, i, j - 1, dx * h, dy);
+                T_bottom = T;
+                Pc_term_bottom = -Pc_term; // Note the sign change
                 diagonal_element += T_bottom;
                 triplets.emplace_back(k, grid.idx(i, j - 1), -T_bottom);
             }
+            
+            b(k) += (Pc_term_right + Pc_term_left + Pc_term_top + Pc_term_bottom);
 
             // 3. Well Terms
             for (const auto& well : wells) {
@@ -178,48 +202,50 @@ void Solver::update_saturation(double dt) {
     Eigen::VectorXd s_old = grid.get_sw_vector();
     Eigen::VectorXd s_new = s_old;
 
+    auto calculate_flux = [&](int i_from, int j_from, int i_to, int j_to, double L, double area) {
+        // Harmonic average of permeability
+        double perm_from = grid.getPermeability(i_from, j_from);
+        double perm_to = grid.getPermeability(i_to, j_to);
+        double avg_perm = (2.0 * perm_from * perm_to) / (perm_from + perm_to);
+
+        double p_from = p_new(grid.idx(i_from, j_from));
+        double p_to = p_new(grid.idx(i_to, j_to));
+        
+        // Upstream weighting for saturation and mobility
+        int i_up, j_up;
+        double p_up;
+        if (p_from > p_to) {
+            i_up = i_from; j_up = j_from; p_up = p_from;
+        } else {
+            i_up = i_to; j_up = j_to; p_up = p_to;
+        }
+        
+        double s_up = s_old(grid.idx(i_up, j_up));
+        double mob_w = fluid.krw(s_up) / fluid.waterViscosity(p_up);
+        
+        // Adding capillary pressure effect to the water flux
+        double s_from = s_old(grid.idx(i_from, j_from));
+        double s_to = s_old(grid.idx(i_to, j_to));
+        double pc_from = fluid.capillaryPressure(s_from);
+        double pc_to = fluid.capillaryPressure(s_to);
+
+        return -mob_w * avg_perm * area * ( (p_to - p_from) - (pc_to - pc_from) ) / L;
+    };
+
     #pragma omp parallel for
     for (int k = 0; k < nx * ny; ++k) {
         int i, j;
         grid.get_ij(k, i, j);
 
         const double poro = grid.getPorosity(i,j);
-        double divergence_term = 0.0;
         
-        // Calculate divergence only for interior cells
-        if (i > 0 && i < nx - 1 && j > 0 && j < ny - 1) {
-            // Fluxes based on NEW pressure and OLD saturation
-            auto calculate_flux = [&](int i_from, int j_from, int i_to, int j_to, double L, double area) {
-                // Harmonic average of permeability
-                double perm_from = grid.getPermeability(i_from, j_from);
-                double perm_to = grid.getPermeability(i_to, j_to);
-                double avg_perm = (2.0 * perm_from * perm_to) / (perm_from + perm_to);
-
-                double p_from = p_new(grid.idx(i_from, j_from));
-                double p_to = p_new(grid.idx(i_to, j_to));
-                
-                // Upstream weighting for saturation and mobility
-                int i_up, j_up;
-                double p_up;
-                if (p_from > p_to) {
-                    i_up = i_from; j_up = j_from; p_up = p_from;
-                } else {
-                    i_up = i_to; j_up = j_to; p_up = p_to;
-                }
-                
-                double s_up = s_old(grid.idx(i_up, j_up));
-                double mob_w = fluid.krw(s_up) / fluid.waterViscosity(p_up);
-
-                return -mob_w * avg_perm * area * (p_to - p_from) / L;
-            };
-
-            double flux_right = calculate_flux(i, j, i + 1, j, dx, dy * params.h);
-            double flux_left  = calculate_flux(i - 1, j, i, j, dx, dy * params.h);
-            double flux_top   = calculate_flux(i, j, i, j + 1, dy, dx * params.h);
-            double flux_bottom= calculate_flux(i, j - 1, i, j, dy, dx * params.h);
-            
-            divergence_term = (flux_right - flux_left) + (flux_top - flux_bottom);
-        }
+        // Calculate fluxes for all cell faces, assuming no-flow at boundaries
+        double flux_right = (i < nx - 1) ? calculate_flux(i, j, i + 1, j, dx, dy * params.h) : 0.0;
+        double flux_left  = (i > 0)      ? calculate_flux(i - 1, j, i, j, dx, dy * params.h) : 0.0;
+        double flux_top   = (j < ny - 1) ? calculate_flux(i, j, i, j + 1, dy, dx * params.h) : 0.0;
+        double flux_bottom= (j > 0)      ? calculate_flux(i, j - 1, i, j, dy, dx * params.h) : 0.0;
+        
+        double divergence_term = (flux_right - flux_left) + (flux_top - flux_bottom);
         
         double q_w = 0.0; // water source term from wells in m^3/s
         for (const auto& well : wells) {

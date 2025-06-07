@@ -15,18 +15,19 @@ Parameters::Parameters(const std::string& filename) {
     while (std::getline(file, line)) {
         std::stringstream ss(line);
         ss >> key;
-        if (key == "NX") ss >> nx;
-        else if (key == "NY") ss >> ny;
-        else if (key == "LX") ss >> lx;
-        else if (key == "LY") ss >> ly;
-        else if (key == "H") ss >> h;
-        else if (key == "PERM") ss >> perm;
-        else if (key == "PORO") ss >> poro;
-        else if (key == "CR") ss >> cr;
-        else if (key == "DT") ss >> dt;
-        else if (key == "TIME") ss >> total_time;
-        else if (key == "INITIAL_PRESSURE") ss >> initial_pressure;
-        else if (key == "INITIAL_SATURATION") ss >> initial_saturation;
+        if (key == "nx") ss >> nx;
+        else if (key == "ny") ss >> ny;
+        else if (key == "lx") ss >> lx;
+        else if (key == "ly") ss >> ly;
+        else if (key == "h") ss >> h;
+        else if (key == "perm") ss >> perm;
+        else if (key == "poro") ss >> poro;
+        else if (key == "cr") ss >> cr;
+        else if (key == "dt") ss >> dt;
+        else if (key == "total_time") ss >> total_time;
+        else if (key == "initial_pressure") ss >> initial_pressure;
+        else if (key == "initial_saturation") ss >> initial_saturation;
+        else if (key == "pc_entry") ss >> pc_entry;
     }
     std::cout << "Parameters loaded from " << filename << std::endl;
 } 
