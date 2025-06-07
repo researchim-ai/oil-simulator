@@ -6,7 +6,9 @@ This is a simple 2D, two-phase (oil and water) reservoir simulator written in C+
 
 The simulator solves the standard black-oil model equations for two-phase flow.
 
-### Governing Equations
+### Mathematical Model
+
+The simulator implements a two-phase (oil and water) model in a 2D Cartesian grid. The mathematical model consists of two main equations solved sequentially.
 
 The pressure equation is derived from the conservation of mass for both phases and is solved implicitly:
 $$
@@ -19,16 +21,16 @@ $$
 $$
 
 Where:
-- $ \lambda_t = \lambda_w + \lambda_o $ is the total mobility, where $ \lambda_p = k_{rp} / \mu_p $ is the mobility of phase $p$.
-- $ \mathbf{K} $ is the permeability tensor.
-- $ p $ is the pressure.
-- $ q_t $ is the total source term from wells.
-- $ \phi $ is the porosity.
-- $ c_t $ is the total compressibility (rock + fluids).
-- $ S_w $ is the water saturation.
-- $ \mathbf{v}_t $ is the total Darcy velocity.
-- $ f_w $ is the fractional flow function for water.
-- $ q_w $ is the source term for water.
+- $\lambda_t = \lambda_w + \lambda_o$ is the total mobility, where $\lambda_p = k_{rp} / \mu_p$ is the mobility of phase $p$.
+- $\mathbf{K}$ is the permeability tensor.
+- $p$ is the pressure.
+- $q_t$ is the total source term from wells.
+- $\phi$ is the porosity.
+- $c_t$ is the total compressibility (rock + fluids).
+- $S_w$ is the water saturation.
+- $\mathbf{v}_t$ is the total Darcy velocity.
+- $f_w$ is the fractional flow function for water.
+- $q_w$ is the source term for water.
 
 ### Well Model
 
@@ -40,7 +42,7 @@ Where $WI$ is the well index, calculated as:
 $$
 WI = \frac{2 \pi k h}{\ln(r_e / r_w)}
 $$
-with the effective radius $ r_e = 0.14 \sqrt{\Delta x^2 + \Delta y^2} $.
+with the effective radius $r_e = 0.14 \sqrt{\Delta x^2 + \Delta y^2}$.
 
 ### Other Models
 
